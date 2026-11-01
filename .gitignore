@@ -1,0 +1,15 @@
+# Build artifacts
+build/
+*.obj
+*.o
+*.exe
+*.dll
+*.a
+*.lib
+*.pdb
+
+# Local AI Guardrails & Handover notes (keep out of public GitHub portfolio commits)
+AGENTS.md
+.agents/
+docs/FLASH_HANDOVER.md
+.toolchain/

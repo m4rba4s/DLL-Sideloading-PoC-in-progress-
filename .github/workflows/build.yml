@@ -1,0 +1,65 @@
+name: Windows x64 Cross-Build & PE Inspection
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  LLVM_MINGW_VERSION: "20240619"
+  LLVM_MINGW_ARCH: "ucrt-ubuntu-20.04-x86_64"
+
+jobs:
+  cross-build-inspect:
+    name: Build PE32+ Binaries & Inspect Headers
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install NASM and LLVM inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            nasm llvm clang lld make curl xz-utils file ca-certificates
+
+      - name: Install pinned LLVM-MinGW (${{ env.LLVM_MINGW_VERSION }})
+        run: |
+          TARBALL="llvm-mingw-${LLVM_MINGW_VERSION}-${LLVM_MINGW_ARCH}.tar.xz"
+          URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/${TARBALL}"
+          mkdir -p "${HOME}/.local/opt"
+          curl -fL --retry 3 -o "/tmp/${TARBALL}" "${URL}"
+          tar -xJf "/tmp/${TARBALL}" -C "${HOME}/.local/opt"
+          mv "${HOME}/.local/opt/llvm-mingw-${LLVM_MINGW_VERSION}-${LLVM_MINGW_ARCH}" "${HOME}/.local/opt/llvm-mingw"
+          echo "${HOME}/.local/opt/llvm-mingw/bin" >> "${GITHUB_PATH}"
+
+      - name: Verify toolchain
+        run: |
+          make check-tools
+
+      - name: Compile Windows x86-64 binaries
+        run: |
+          make clean all
+
+      - name: Inspect PE32+ structures and verify exports
+        run: |
+          make inspect
+          grep -q "BenignGetVersion" build/reports/benign.dll.txt
+          grep -q "BenignComputeChecksum" build/reports/benign.dll.txt
+          grep -q "BenignFormatTelemetry" build/reports/benign.dll.txt
+
+      - name: Upload PE32+ build artifacts & reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-rnd-artifacts
+          path: |
+            build/*.dll
+            build/*.exe
+            build/reports/*.txt
+          if-no-files-found: error

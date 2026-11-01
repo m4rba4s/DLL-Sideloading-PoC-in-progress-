@@ -1,0 +1,5 @@
+LIBRARY "benign.dll"
+EXPORTS
+    BenignGetVersion
+    BenignComputeChecksum
+    BenignFormatTelemetry
